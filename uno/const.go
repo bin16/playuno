@@ -1,5 +1,9 @@
 package uno
 
+import "log"
+
+var debug = true
+
 const (
 	ColorRed     = 0
 	ColorYellow  = 1
@@ -48,6 +52,9 @@ const (
 
 	IDCardWild        = 53
 	IDCardWildAndDraw = 54
+
+	SpecialDraw      = 60
+	SpecialChallenge = 69
 )
 
 var colorMap = map[int]string{
@@ -80,12 +87,16 @@ func getColor(id int) int {
 
 func getName(id int) int {
 	switch {
-	case id == 44:
+	case id == IDCardWildAndDraw:
 		return WildDrawFour
-	case id == 43:
+	case id == IDCardWild:
 		return Wild
 	case id%13 == 0:
-		return 13
+		return IDCardRedNumZero
+	case id == SpecialDraw:
+		return SpecialDraw
+	case id == SpecialChallenge:
+		return SpecialChallenge
 	default:
 		return id % 13
 	}
@@ -99,3 +110,9 @@ const (
 	ActionCard = "card"
 	ActionCall = "call"
 )
+
+func ulog(a ...interface{}) {
+	if debug {
+		log.Println(a)
+	}
+}

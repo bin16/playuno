@@ -18,7 +18,7 @@ import (
 	|     060 | Special | draw                                |
 	| 061~064 | Special | wild:red,yellow,green,blue          |
 	| 065~068 | Special | wild_and_draw:red,yellow,green,blue |
-	|     062 | ------- |                                     |
+	|     069 | Special | challenge                           |
 	===========================================================
 */
 
@@ -30,6 +30,13 @@ type Card struct {
 }
 
 func (c *Card) String() string {
+	switch c.ID {
+	case SpecialDraw:
+		return "Special - Draw"
+	case SpecialChallenge:
+		return "Special - Challenge"
+	}
+
 	var color, name string
 	switch c.Color {
 	case 0:
@@ -68,6 +75,16 @@ func (c *Card) IsNormal() bool {
 	return false
 }
 
+// NextColor : return true color for next player
+func (c *Card) NextColor() int {
+	// wild only, because wild_and_Draw is different
+	if c.Name == Wild {
+		return c.ID - 61 // r,y,g,b
+	}
+
+	return c.Color
+}
+
 // Info = (id) => Card
 func Info(id int) Card {
 	return Card{
@@ -86,6 +103,14 @@ func cardIsNumber(id int) bool {
 	}
 
 	return false
+}
+
+func cardIsWildDrawFour(id int) bool {
+	if id == 54 { // its not needed
+		return true
+	}
+
+	return id >= 65 && id <= 68
 }
 
 func cardIsSkip(id int) bool {
