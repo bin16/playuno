@@ -1,6 +1,8 @@
 package uno
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 // deck - how it works:
 // ... start ...
@@ -78,12 +80,15 @@ func (d *deck) pickValidCards(ids []int) []int {
 		return filteredCards
 	}
 
+	ulog("Last card", lastCard.String())
 	for _, i := range ids {
 		c := Info(i)
+		ulog(">>>>", c.String())
 		if c.Name == lastCard.Name || c.Color == nextColor {
 			filteredCards = append(filteredCards, i)
 		}
 	}
+	ulog(">>>> FilteredCards", filteredCards)
 
 	return filteredCards
 }
@@ -128,7 +133,7 @@ func (d *deck) findRelatedCards() []int {
 func NewDeck(mode string, size int) *deck {
 	d := &deck{
 		Mode:  mode,
-		cards: []int{5, 7, 4, 3, 4, 5, 6, 7, 8, 11, 2, 12, 33, 41, 23, 22, 13, 44},
+		cards: []int{3, 12, 22, 5, 7, 4, 3, 4, 5, 6, 7, 8, 11, 2, 12, 33, 41, 23, 22, 13, 44, 23, 22, 12, 24, 32, 12, 5, 24, 16, 19, 8, 2, 17, 22},
 	}
 	d.Shuffle()
 
