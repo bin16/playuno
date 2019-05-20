@@ -19,6 +19,7 @@ import (
 	| 061~064 | Special | wild:red,yellow,green,blue          |
 	| 065~068 | Special | wild_and_draw:red,yellow,green,blue |
 	|     069 | Special | challenge                           |
+	|     070 | Special | draw_four                           |
 	===========================================================
 */
 
@@ -31,9 +32,11 @@ type Card struct {
 
 func (c *Card) String() string {
 	switch c.ID {
-	case SpecialDraw:
+	case IDSpecialDraw:
 		return "Special - Draw"
-	case SpecialChallenge:
+	case IDSpeicalDrawFour:
+		return "Special - Draw Four"
+	case IDSpecialChallenge:
 		return "Special - Challenge"
 	}
 
@@ -156,4 +159,26 @@ func cardIsDrawTwo(id int) bool {
 	default:
 		return false
 	}
+}
+
+// not in use
+func pickCardFromList(id int, list []int) (bool, []int) {
+	for ix, _id := range list {
+		if _id == id {
+			return true, append(list[:ix], list[ix+1:]...)
+		}
+	}
+
+	return false, list
+}
+
+func isNotBluff(cardID int, relatedCards []int) bool {
+	altColor := getAltColor(cardID)
+	for _, id := range relatedCards {
+		color := getColor(id)
+		if color == altColor {
+			return true
+		}
+	}
+	return false
 }

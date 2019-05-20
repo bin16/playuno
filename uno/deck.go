@@ -4,6 +4,15 @@ import (
 	"math/rand"
 )
 
+// TurnResult detail of result when user post a new card
+// but, not in use
+type TurnResult struct {
+	Valid    bool
+	Message  string
+	Cards    []int
+	AltCards []int
+}
+
 // deck - how it works:
 // ... start ...
 // deck.Shuffle(Num)
@@ -22,6 +31,30 @@ type deck struct {
 	graveyard []int
 	usedCards []int
 	Mode      string
+}
+
+// Accept : my card ID, all my cards, previous player's cards
+func (d *deck) Accept(id int, cards, prevCards []int) (bool, []int, []int) {
+	ulog("deck.Accept <<<<", id)
+	lastID := d.LastID()
+	if d.isValid(id) {
+		d.graveyard = append(d.graveyard, id)
+		switch id {
+		case IDSpecialDraw:
+			return true, d.Draw(2), []int{}
+		case IDSpeicalDrawFour:
+			return true, d.Draw(4), []int{}
+		case IDSpecialChallenge:
+			if isNotBluff(lastID, prevCards) {
+				return true, d.Draw(6), []int{}
+			}
+			return true, []int{}, d.Draw(6)
+		default:
+			return true, []int{}, []int{}
+		}
+	}
+
+	return false, []int{}, []int{}
 }
 
 func (d *deck) Shuffle() {
@@ -69,22 +102,31 @@ func (d *deck) LastCard() Card {
 	return Info(d.LastID())
 }
 
+func (d *deck) isValid(id int) bool {
+	lastCard := d.LastCard()
+	currentCard := Info(id)
+	if currentCard.Name == lastCard.Name || currentCard.Color == lastCard.Color {
+		return true
+	}
+
+	return false
+}
+
 func (d *deck) pickValidCards(ids []int) []int {
 	lastCard := d.LastCard()
 	nextColor := lastCard.NextColor()
-	filteredCards := []int{SpecialDraw}
+	filteredCards := []int{}
 
 	// wild_draw_four
 	if nextColor == ColorBlack {
-		filteredCards = append(filteredCards, SpecialChallenge)
+		filteredCards = append(filteredCards, IDSpeicalDrawFour, IDSpecialChallenge)
 		return filteredCards
 	}
 
 	ulog("Last card", lastCard.String())
+	filteredCards = []int{IDSpecialDraw}
 	for _, i := range ids {
-		c := Info(i)
-		ulog(">>>>", c.String())
-		if c.Name == lastCard.Name || c.Color == nextColor {
+		if d.isValid(i) {
 			filteredCards = append(filteredCards, i)
 		}
 	}

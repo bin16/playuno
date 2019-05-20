@@ -53,8 +53,16 @@ const (
 	IDCardWild        = 53
 	IDCardWildAndDraw = 54
 
-	SpecialDraw      = 60
-	SpecialChallenge = 69
+	IDSpecialDraw = 60
+	/*
+		61-64, 65-68 is black
+	*/
+	IDWildDrawFourRed    = 65
+	IDWildDrawFourYellow = 66
+	IDWildDrawFourGreen  = 67
+	IDWildDrawFourBlue   = 68
+	IDSpecialChallenge   = 69
+	IDSpeicalDrawFour    = 70
 )
 
 var colorMap = map[int]string{
@@ -64,6 +72,10 @@ var colorMap = map[int]string{
 	3: "blue",
 	4: "black",
 	5: "speical",
+}
+
+func getAltColor(id int) int {
+	return id - IDWildDrawFourRed
 }
 
 func getColor(id int) int {
@@ -93,10 +105,12 @@ func getName(id int) int {
 		return Wild
 	case id%13 == 0:
 		return IDCardRedNumZero
-	case id == SpecialDraw:
-		return SpecialDraw
-	case id == SpecialChallenge:
-		return SpecialChallenge
+	case id == IDSpecialDraw:
+		return IDSpecialDraw
+	case id == IDSpeicalDrawFour:
+		return IDSpeicalDrawFour
+	case id == IDSpecialChallenge:
+		return IDSpecialChallenge
 	default:
 		return id % 13
 	}
