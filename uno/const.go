@@ -4,6 +4,20 @@ import "log"
 
 var debug = true
 
+// GameModes
+const (
+	GameModeStandard = "standard"
+	GameModeWild     = "wild"
+
+	// Todo: rewrite here
+	// GameStatusXXX for deck
+	GameStatusOpen   = 0
+	GameStatusGoing  = 1
+	GameStatusPaused = 2
+	GameStatusClosed = 3
+)
+
+// Colors, Cards, IDs
 const (
 	ColorRed     = 0
 	ColorYellow  = 1
@@ -116,17 +130,9 @@ func getName(id int) int {
 	}
 }
 
-const (
-	GameModeStandard = "standard"
-	GameModeWild     = "wild"
-
-	ActionDraw = "draw"
-	ActionCard = "card"
-	ActionCall = "call"
-)
-
+// helper function to display logs
 func ulog(a ...interface{}) {
 	if debug {
-		log.Println(a)
+		log.Println(a...)
 	}
 }
