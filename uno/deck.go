@@ -47,6 +47,7 @@ type deck struct {
 	players      []*player // Players of this game
 }
 
+// Todo: rewrite this method
 // Accept : my card ID, all my cards, previous player's cards
 func (d *deck) Accept(id int, cards, prevCards []int) (bool, []int, []int) {
 	ulog("deck.Accept <<<<", id)
