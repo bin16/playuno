@@ -13,6 +13,15 @@ type TurnResult struct {
 	AltCards []int
 }
 
+type player struct {
+	ID    int    `json:"id"`
+	Key   string `json:"key"`
+	cards []int  // not public
+	// Todo
+	Skiped bool // skip him, mostly because he leave the game?
+	Locked bool // lock him, for cheat reasons?
+}
+
 // deck - how it works:
 // ... start ...
 // deck.Shuffle(Num)
@@ -31,6 +40,11 @@ type deck struct {
 	graveyard []int
 	usedCards []int
 	Mode      string
+	status    int
+
+	reverse      bool
+	currentIndex int
+	players      []*player // Players of this game
 }
 
 // Accept : my card ID, all my cards, previous player's cards
@@ -85,6 +99,7 @@ func (d *deck) Start() int {
 
 	cc := Info(c)
 	ulog("First card is", cc.String())
+	d.status = GameStatusGoing
 
 	return c
 }
@@ -170,6 +185,10 @@ func (d *deck) findRelatedCards() []int {
 	return []int{lastID}
 }
 
+func (d *deck) Gaming() bool {
+	return d.status == GameStatusGoing
+}
+
 // NewDeck : => deck
 // size is user count
 func NewDeck(mode string, size int) *deck {
@@ -180,4 +199,115 @@ func NewDeck(mode string, size int) *deck {
 	d.Shuffle()
 
 	return d
+}
+
+func (d *deck) Count() int {
+	return len(d.players)
+}
+
+func (d *deck) Reverse() int {
+	d.reverse = !d.reverse
+	return d.Next()
+}
+
+func (d *deck) Next() int {
+	i := d.currentIndex
+	if d.reverse {
+		i--
+	} else {
+		i++
+	}
+
+	fixed := keepIndex(i, 0, d.Count())
+	d.currentIndex = fixed
+	return fixed
+}
+
+func (d *deck) Skip() int {
+	i := d.currentIndex
+	if d.reverse {
+		i -= 2
+	} else {
+		i += 2
+	}
+
+	fixed := keepIndex(i, 0, d.Count())
+	d.currentIndex = fixed
+	return fixed
+}
+
+func keepIndex(value, min, max int) int {
+	v := value
+	for v < min {
+		v += (max - min)
+	}
+
+	for v > max {
+		v -= (max - min)
+	}
+
+	return v
+}
+
+// current position
+func (d *deck) Index() int {
+	return d.currentIndex
+}
+
+// NEXT player's position
+func (d *deck) Get(rel int) int {
+	switch {
+	case rel == 1:
+		return d.Next()
+	case rel == 2:
+		return d.Skip()
+	case rel == -1:
+		return d.Reverse()
+	}
+
+	return 0
+}
+
+// display all players
+func (d *deck) OrderList() []*player {
+	// Todo: check cards
+	return d.players
+}
+
+func (d *deck) Join(key string) bool {
+	playerNotIn := findPlayerWithKey(key, d.players) < 0
+	if playerNotIn {
+		d.players = append(d.players, &player{
+			ID:  len(d.players) + 1,
+			Key: key,
+		})
+		return true
+	}
+
+	return false
+}
+
+func (d *deck) Leave(key string) bool {
+	// Todo; no one can leave, hahaha
+	return false
+}
+
+func findPlayerWithKey(key string, pl []*player) int {
+	for ix, p0 := range pl {
+		if p0.Key == key {
+			return ix
+		}
+	}
+
+	return -1
+}
+
+func findPlayerWithID(id int, pl []*player) int {
+	for ix, p0 := range pl {
+		if p0.ID == id {
+			return ix
+		}
+	}
+
+	return -1
 }
