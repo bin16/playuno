@@ -22,6 +22,10 @@ type player struct {
 	Locked bool // lock him, for cheat reasons?
 }
 
+func (p *player) AddCards(cards []int) {
+	p.cards = append(p.cards, cards...)
+}
+
 // deck - how it works:
 // ... start ...
 // deck.Shuffle(Num)
@@ -42,34 +46,57 @@ type deck struct {
 	Mode      string
 	status    int
 
-	reverse      bool
-	currentIndex int
-	players      []*player // Players of this game
+	reverse       bool
+	previousIndex int
+	currentIndex  int
+	players       []*player // Players of this game
+}
+
+func (d *deck) CurrentPlayer() *player {
+	return d.players[d.currentIndex]
+}
+
+func (d *deck) PreviousPlayer() *player {
+	return d.players[d.previousIndex]
 }
 
 // Todo: rewrite this method
-// Accept : my card ID, all my cards, previous player's cards
-func (d *deck) Accept(id int, cards, prevCards []int) (bool, []int, []int) {
+// Todo: should return message
+// Accept : my card ID
+func (d *deck) Accept(id int) bool {
+	p1 := d.CurrentPlayer()
+	p0 := d.PreviousPlayer()
 	ulog("deck.Accept <<<<", id)
 	lastID := d.LastID()
 	if d.isValid(id) {
 		d.graveyard = append(d.graveyard, id)
 		switch id {
 		case IDSpecialDraw:
-			return true, d.Draw(2), []int{}
+			p1.cards = append(p1.cards, d.Draw(2)...)
+			return true
 		case IDSpeicalDrawFour:
-			return true, d.Draw(4), []int{}
+			p1.cards = append(p1.cards, d.Draw(4)...)
+			return true
 		case IDSpecialChallenge:
-			if isNotBluff(lastID, prevCards) {
-				return true, d.Draw(6), []int{}
+			if isNotBluff(lastID, p0.cards) {
+				return true
 			}
-			return true, []int{}, d.Draw(6)
+			return true
 		default:
-			return true, []int{}, []int{}
+			return true
 		}
 	}
 
-	return false, []int{}, []int{}
+	return false
+}
+
+// Todo: fix
+func (d *deck) NextTurn() {
+	d.previousIndex = d.currentIndex
+	d.currentIndex = d.Next()
+	cards := d.CurrentPlayer().cards
+	d.Filter(cards)
+	// todo: return result to notify player
 }
 
 func (d *deck) Shuffle() {
@@ -80,9 +107,9 @@ func (d *deck) Shuffle() {
 	})
 }
 
+//Todo: finish it
 func (d *deck) ShuffleN(n int) {
 	// make n cards, then shuffle
-	// todo
 }
 
 func (d *deck) Draw(num int) []int {
@@ -93,6 +120,7 @@ func (d *deck) Draw(num int) []int {
 	return ids
 }
 
+// Todo: draw cards to all players
 func (d *deck) Start() int {
 	c := d.cards[0]
 	d.cards = d.cards[1:]
@@ -110,10 +138,12 @@ func (d *deck) Remove(num int) {
 	d.graveyard = append(d.graveyard, ids...)
 }
 
+// LastID returns last card in graveyard's ID
 func (d *deck) LastID() int {
 	return d.graveyard[len(d.graveyard)-1]
 }
 
+// LastCard returns last Card in graveyard
 func (d *deck) LastCard() Card {
 	return Info(d.LastID())
 }
@@ -151,10 +181,14 @@ func (d *deck) pickValidCards(ids []int) []int {
 	return filteredCards
 }
 
+// Filter returns valid cards can be post
 func (d *deck) Filter(ids []int) []int {
 	return d.pickValidCards(ids)
 }
 
+// NextPlayer returns the next player based on cards
+// Todo: think it should be dropped, use IndexNextPlayer()
+// and IndexNextPlayer() used in .NextTurn()
 func (d *deck) NextPlayer() int {
 	lastID := d.LastID()
 	switch {
@@ -167,6 +201,8 @@ func (d *deck) NextPlayer() int {
 	}
 }
 
+// findRelatedCards return related cards ...
+// +2 +2 +2 (mostly?)
 func (d *deck) findRelatedCards() []int {
 	relatedCards := []int{}
 	lastIndex := len(d.graveyard) - 1
@@ -186,6 +222,7 @@ func (d *deck) findRelatedCards() []int {
 	return []int{lastID}
 }
 
+// Gaming returns if game's status is playing
 func (d *deck) Gaming() bool {
 	return d.status == GameStatusGoing
 }
@@ -202,15 +239,21 @@ func NewDeck(mode string, size int) *deck {
 	return d
 }
 
+// Count returns how many players in game
+// Todo: some players may leave, but still in players: []*player
+// they should be skipped forever, so fix here
 func (d *deck) Count() int {
 	return len(d.players)
 }
 
+// Reverse change gaming order
 func (d *deck) Reverse() int {
 	d.reverse = !d.reverse
 	return d.Next()
 }
 
+// Next always return index+1...
+// todo
 func (d *deck) Next() int {
 	i := d.currentIndex
 	if d.reverse {
@@ -224,6 +267,8 @@ func (d *deck) Next() int {
 	return fixed
 }
 
+// Skip returns index+2...
+// todo
 func (d *deck) Skip() int {
 	i := d.currentIndex
 	if d.reverse {
@@ -235,6 +280,13 @@ func (d *deck) Skip() int {
 	fixed := keepIndex(i, 0, d.Count())
 	d.currentIndex = fixed
 	return fixed
+}
+
+// todo: based on graveyard cards,
+// call Next()/Skip()/Reverse()
+// to get next player[To Post Card]'s index
+func (*deck) IndexNextPlayer() {
+	// todo
 }
 
 func keepIndex(value, min, max int) int {
