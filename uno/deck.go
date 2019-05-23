@@ -2,6 +2,19 @@ package uno
 
 import (
 	"math/rand"
+	"time"
+)
+
+// Messages
+const (
+	MsgPlayerNotBluff = "playerNotBluff"
+	MsgPlayerBluff    = "playerBluff"
+	MsgPlayerCheating = "playerCheating"
+	MsgOk             = "ok"
+	MsgGameStart      = "gameStart"
+	MsgPlayerToGame   = "playerToGame"
+	MsgGamePlayerJoin = "gamePlayerJoin"
+	MsgSystemMessage  = "systemMessage"
 )
 
 // TurnResult detail of result when user post a new card
@@ -60,43 +73,92 @@ func (d *deck) PreviousPlayer() *player {
 	return d.players[d.previousIndex]
 }
 
-// Todo: rewrite this method
-// Todo: should return message
+type unoMsg struct {
+	Ok      bool
+	Cards   []int
+	Message string
+	Key     string
+	p0cards []int
+	p1cards []int
+}
+
 // Accept : my card ID
-func (d *deck) Accept(id int) bool {
+func (d *deck) Accept(id int) unoMsg {
 	p1 := d.CurrentPlayer()
-	p0 := d.PreviousPlayer()
+	p0 := d.PreviousPlayer() // you may challenge him
 	ulog("deck.Accept <<<<", id)
-	lastID := d.LastID()
+	lastID := d.LastID() // last card id in graveyard
 	if d.isValid(id) {
 		d.graveyard = append(d.graveyard, id)
 		switch id {
 		case IDSpecialDraw:
 			p1.cards = append(p1.cards, d.Draw(2)...)
-			return true
+			return unoMsg{
+				Ok:      true,
+				Cards:   p1.cards,
+				Message: MsgOk,
+				p0cards: p0.cards,
+				p1cards: p1.cards,
+			}
 		case IDSpeicalDrawFour:
 			p1.cards = append(p1.cards, d.Draw(4)...)
-			return true
+			return unoMsg{
+				Ok:      true,
+				Cards:   p1.cards,
+				Message: MsgOk,
+				p0cards: p0.cards,
+				p1cards: p1.cards,
+			}
 		case IDSpecialChallenge:
 			if isNotBluff(lastID, p0.cards) {
-				return true
+				p1.cards = append(p1.cards, d.Draw(6)...)
+				return unoMsg{
+					Ok:      true,
+					Cards:   p1.cards,
+					Message: MsgPlayerNotBluff,
+					p0cards: p0.cards,
+					p1cards: p1.cards,
+				}
 			}
-			return true
+
+			p0.cards = append(p0.cards, d.Draw(6)...)
+			return unoMsg{
+				Ok:      true,
+				Cards:   p1.cards,
+				Message: MsgPlayerBluff,
+				p0cards: p0.cards,
+				p1cards: p1.cards,
+			}
 		default:
-			return true
+			return unoMsg{
+				Ok:      true,
+				Cards:   p1.cards,
+				Message: MsgOk,
+				p0cards: p0.cards,
+				p1cards: p1.cards,
+			}
 		}
 	}
 
-	return false
+	return unoMsg{
+		Ok:      false,
+		Cards:   p1.cards,
+		Message: MsgPlayerCheating,
+	}
 }
 
 // Todo: fix
-func (d *deck) NextTurn() {
-	d.previousIndex = d.currentIndex
-	d.currentIndex = d.Next()
+func (d *deck) NextTurn() unoMsg {
+	d.previousIndex = d.Index()
+	d.currentIndex = d.IndexNextPlayer()
 	cards := d.CurrentPlayer().cards
 	d.Filter(cards)
-	// todo: return result to notify player
+	return unoMsg{
+		Ok:      true,
+		Message: MsgPlayerToGame,
+		Cards:   cards,
+		p1cards: cards,
+	}
 }
 
 func (d *deck) Shuffle() {
@@ -108,8 +170,15 @@ func (d *deck) Shuffle() {
 }
 
 //Todo: finish it
-func (d *deck) ShuffleN(n int) {
-	// make n cards, then shuffle
+func (d *deck) ShuffleN(n int) []int {
+	cards := []int{}
+	for i := 0; i < n; i++ {
+		rand.Seed(int64(time.Now().Nanosecond() * (i + 1)))
+		id := rand.Intn(54) + 1
+		cards = append(cards, id)
+	}
+
+	return cards
 }
 
 func (d *deck) Draw(num int) []int {
@@ -120,17 +189,23 @@ func (d *deck) Draw(num int) []int {
 	return ids
 }
 
-// Todo: draw cards to all players
-func (d *deck) Start() int {
+func (d *deck) Start() unoMsg {
 	c := d.cards[0]
 	d.cards = d.cards[1:]
 	d.graveyard = append(d.graveyard, c)
 
-	cc := Info(c)
-	ulog("First card is", cc.String())
+	c0 := Info(c)
+	ulog("First card is", c0.String())
 	d.status = GameStatusGoing
 
-	return c
+	for _, p := range d.players {
+		p.cards = d.Draw(7)
+	}
+
+	return unoMsg{
+		Ok:      true,
+		Message: MsgGameStart,
+	}
 }
 
 func (d *deck) Remove(num int) {
@@ -282,11 +357,17 @@ func (d *deck) Skip() int {
 	return fixed
 }
 
-// todo: based on graveyard cards,
-// call Next()/Skip()/Reverse()
 // to get next player[To Post Card]'s index
-func (*deck) IndexNextPlayer() {
-	// todo
+func (d *deck) IndexNextPlayer() int {
+	lastCardID := d.LastID()
+	switch {
+	case cardIsSkip(lastCardID):
+		return d.Skip()
+	case cardIsReverse(lastCardID):
+		return d.Reverse()
+	default:
+		return d.Next()
+	}
 }
 
 func keepIndex(value, min, max int) int {
@@ -363,4 +444,30 @@ func findPlayerWithID(id int, pl []*player) int {
 	}
 
 	return -1
+}
+
+func (d *deck) Export() deckInfo {
+	return deckInfo{
+		Cards:         d.cards,
+		Graveyard:     d.graveyard,
+		Mode:          d.Mode,
+		Status:        d.status,
+		Reverse:       d.reverse,
+		PreviousIndex: d.previousIndex,
+		CurrentIndex:  d.currentIndex,
+		Players:       d.players,
+	}
+}
+
+type deckInfo struct {
+	Cards     []int
+	Graveyard []int
+	UsedCards []int
+	Mode      string
+	Status    int
+
+	Reverse       bool
+	PreviousIndex int
+	CurrentIndex  int
+	Players       []*player // Players of this game
 }
