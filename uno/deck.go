@@ -11,9 +11,9 @@ const (
 	MsgPlayerBluff    = "playerBluff"
 	MsgPlayerCheating = "playerCheating"
 	MsgOk             = "ok"
-	MsgGameStart      = "gameStart"
 	MsgPlayerToGame   = "playerToGame"
 	MsgGamePlayerJoin = "gamePlayerJoin"
+	MsgGameStart      = "gameStart"
 	MsgSystemMessage  = "systemMessage"
 )
 
@@ -27,12 +27,17 @@ type TurnResult struct {
 }
 
 type player struct {
+	Name  string `json:"name"`
 	ID    int    `json:"id"`
 	Key   string `json:"key"`
-	cards []int  // not public
+	cards []int
 	// Todo
-	Skiped bool // skip him, mostly because he leave the game?
-	Locked bool // lock him, for cheat reasons?
+	skip bool // skip him, mostly because he leave the game?
+	lock bool // lock him, for cheat reasons?
+}
+
+func (p *player) Cards() []int {
+	return p.cards
 }
 
 func (p *player) AddCards(cards []int) {
@@ -63,6 +68,40 @@ type deck struct {
 	previousIndex int
 	currentIndex  int
 	players       []*player // Players of this game
+}
+
+// MyCards something named like this,
+// return cards by player id
+// todo, need a new data type for card
+// with attributes like
+// color, image url, available...
+// it would be helpful for client
+func (d *deck) MyCards(id int) {
+
+}
+
+func (d *deck) Players() []*player {
+	return d.players
+}
+
+func (d *deck) GetID(key string) int {
+	for _, p := range d.players {
+		if p.Key == key {
+			return p.ID
+		}
+	}
+
+	return 0
+}
+
+func (d *deck) Player(id int) *player {
+	for _, p := range d.players {
+		if p.ID == id {
+			return p
+		}
+	}
+
+	return &player{}
 }
 
 func (d *deck) CurrentPlayer() *player {
@@ -190,6 +229,7 @@ func (d *deck) Draw(num int) []int {
 }
 
 func (d *deck) Start() unoMsg {
+	d.ShuffleN(100)
 	c := d.cards[0]
 	d.cards = d.cards[1:]
 	d.graveyard = append(d.graveyard, c)
@@ -460,14 +500,16 @@ func (d *deck) Export() deckInfo {
 }
 
 type deckInfo struct {
-	Cards     []int
-	Graveyard []int
+	Cards     []int `json:"cards"`
+	Graveyard []int `json:"graveyard"`
 	UsedCards []int
-	Mode      string
-	Status    int
+	Mode      string `json:"mode"`
+	Status    int    `json:"status"`
 
 	Reverse       bool
 	PreviousIndex int
 	CurrentIndex  int
-	Players       []*player // Players of this game
+
+	Players []*player `json:"players"`
+	MyCards []int     `json:"myCards"`
 }
