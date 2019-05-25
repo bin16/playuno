@@ -25,9 +25,9 @@ import (
 
 // Card is UNO Card
 type Card struct {
-	ID    int
-	Color int
-	Name  int
+	ID    int `json:"id"`
+	Color int `json:"color"`
+	Name  int `json:"name"`
 }
 
 func (c *Card) String() string {
