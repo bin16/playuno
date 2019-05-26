@@ -35,6 +35,16 @@ func (p *player) RemoveCard(cardID int) {
 	}
 }
 
+func (p *player) FullName() string {
+	name := p.Name
+	if len(name) == 0 {
+		name = "NO_NAME"
+	}
+	name += " (" + strconv.Itoa(p._ID) + ")"
+
+	return name
+}
+
 type deck struct {
 	Mode          string `json:"mode"`
 	cards         []int
@@ -53,10 +63,26 @@ type deck struct {
 // with attributes like
 // color, image url, available...
 // it would be helpful for client
-// func (d *deck) MyCards(id int) []Card {
-// 	cards := []Card{}
-// 	return cards
-// }
+func (d *deck) MyCards(playerID string) []MyCard {
+	p := d.Player(playerID)
+	if p == nil {
+		return []MyCard{}
+	}
+	cards := p.Cards()
+	usableCards := d.Filter(playerID)
+	myCards := []MyCard{}
+	for _, c := range cards {
+		mc := MyCard{
+			ID: c,
+		}
+		if isCardInList(c, usableCards) {
+			mc.Usable = true
+		}
+		myCards = append(myCards, mc)
+	}
+
+	return myCards
+}
 
 // Players return all player in game
 // same as d.players
@@ -98,21 +124,21 @@ func (d *deck) Accept(playerID string, cardID int) (bool, []UnoMsg) {
 		case IDSpecialDraw:
 			p1.AddCards(d.Draw(2))
 			return OK, []UnoMsg{
-				*unoMsgMaker(true, MsgCardAccept),
-				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+				*unoMsgMaker(true, MsgCardAccept).WithCard(cardID).WithTarget(p1),
+				*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 			}
 		case IDSpeicalDrawFour:
 			p1.AddCards(d.Draw(4))
 			return OK, []UnoMsg{
-				*unoMsgMaker(true, MsgCardAccept),
-				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+				*unoMsgMaker(true, MsgCardAccept).WithCard(cardID).WithTarget(p1),
+				*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 			}
 		case IDSpecialChallenge:
 			if isNotBluff(lastID, p0.cards) {
 				p1.AddCards(d.Draw(6))
 				return OK, []UnoMsg{
-					*unoMsgMaker(true, MsgCardAccept),
-					*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+					*unoMsgMaker(true, MsgCardAccept).WithCard(cardID).WithTarget(p1),
+					*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 					*unoMsgMaker(true, MsgPlayerNotBluff).WithTarget(p0),
 					*unoMsgMaker(true, MsgPlayerGotCards).WithTarget(p1),
 				}
@@ -120,16 +146,16 @@ func (d *deck) Accept(playerID string, cardID int) (bool, []UnoMsg) {
 			// else
 			p0.AddCards(d.Draw(6))
 			return OK, []UnoMsg{
-				*unoMsgMaker(true, MsgCardAccept),
-				*unoMsgMaker(true, CmdSetCards).WithCards(p0.Cards(), NoCards).To(p0.ID), // Update p0's cards
-				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+				*unoMsgMaker(true, MsgCardAccept).WithCard(cardID).WithTarget(p1),
+				*unoMsgMaker(true, CmdSetCards).SetCards(p0.Cards(), NoCards).To(p0.ID), // Update p0's cards
+				*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 				*unoMsgMaker(true, MsgPlayerBluff).WithTarget(p0),
 				*unoMsgMaker(true, MsgPlayerGotCards).WithTarget(p0),
 			}
 		default:
 			return OK, []UnoMsg{
-				*unoMsgMaker(true, MsgCardAccept),
-				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+				*unoMsgMaker(true, MsgCardAccept).WithCard(cardID).WithTarget(p1),
+				*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 			}
 		}
 	}
@@ -147,7 +173,7 @@ func (d *deck) NextTurn() []UnoMsg {
 
 	return []UnoMsg{
 		*unoMsgMaker(true, MsgPlayerToGame).WithTarget(p1),
-		*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), d.Filter(p1.ID)).To(p1.ID),
+		*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), d.Filter(p1.ID)).To(p1.ID),
 	}
 }
 
@@ -210,11 +236,11 @@ func (d *deck) start() []UnoMsg {
 	for _, p := range d.players {
 		p.AddCards(d.Draw(7))
 		msgList = append(msgList,
-			*unoMsgMaker(true, CmdSetCards).WithCards(p.Cards(), NoCards).To(p.ID),
+			*unoMsgMaker(true, CmdSetCards).SetCards(p.Cards(), NoCards).To(p.ID),
 		)
 	}
 	msgList = append(msgList,
-		*unoMsgMaker(true, MsgCardAccept),
+		*unoMsgMaker(true, MsgCardAccept).WithCard(c),
 	)
 
 	return msgList
@@ -230,9 +256,20 @@ func (d *deck) LastCard() Card {
 	return Info(d.LastID())
 }
 
-func (d *deck) isUsable(id int) bool {
+// todo: fix
+func (d *deck) isUsable(cardID int) bool {
+	lastCardID := d.LastID()
+	switch {
+	// draw two, draw two
+	// reverse and skip is like normal cards
+	case cardIsDrawTwo(lastCardID):
+		return cardIsDrawTwo(cardID)
+	case cardIsWildDrawFour(lastCardID):
+		return cardID == IDSpecialChallenge || cardID == IDSpecialDraw
+	}
+
+	currentCard := Info(cardID)
 	lastCard := d.LastCard()
-	currentCard := Info(id)
 	if currentCard.Name == lastCard.Name || currentCard.Color == lastCard.Color {
 		return true
 	}
@@ -240,6 +277,7 @@ func (d *deck) isUsable(id int) bool {
 	return false
 }
 
+// Todo: rewrite!
 func (d *deck) pickActiveCards(ids []int) []int {
 	lastCard := d.LastCard()
 	nextColor := lastCard.NextColor()
@@ -408,21 +446,13 @@ func (d *deck) NextPlayer(rel int) int {
 func (d *deck) Join(id, name string) []UnoMsg {
 	if d.IsPlayerIn(id) {
 		return []UnoMsg{
-			UnoMsg{
-				ID:      id,
-				Ok:      false,
-				Message: MsgWarning, // todo: ErrPlayerIsIn
-			},
+			*unoMsgMaker(false, MsgWarning).To(id),
 		}
 	}
 
 	if d.lock && d.Gaming() {
 		return []UnoMsg{
-			UnoMsg{
-				ID:      id,
-				Ok:      false,
-				Message: MsgWarning, // todo: ErrGameLocked
-			},
+			*unoMsgMaker(false, MsgWarning).To(id),
 		}
 	}
 
@@ -434,20 +464,14 @@ func (d *deck) Join(id, name string) []UnoMsg {
 	}
 	d.players = append(d.players, p)
 	messages := []UnoMsg{
-		UnoMsg{
-			Ok:      true,
-			Message: MsgGamePlayerJoin,
-			Players: d.PlayerNames(),
-		},
+		*unoMsgMaker(true, MsgPlayerJoin).WithTarget(p),
+		*unoMsgMaker(true, CmdSetPlayers).SetPlayers(d.Players()),
 	}
 	if d.Gaming() {
 		p.AddCards(d.Draw(7))
-		messages = append(messages, UnoMsg{
-			ID:      id,
-			Ok:      true,
-			Cards:   p.Cards(),
-			Message: MsgGameDrawCards,
-		})
+		messages = append(messages,
+			*unoMsgMaker(true, CmdSetCards).SetCards(p.Cards(), NoCards).To(id),
+		)
 	}
 
 	return messages

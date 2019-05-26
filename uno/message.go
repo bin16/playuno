@@ -17,6 +17,7 @@ const (
 
 	MsgWarning        = "msg_warning"
 	MsgCardAccept     = "msg_card_accept"
+	MsgPlayerJoin     = "msg_player_join"
 	MsgPlayerBluff    = "msg_player_bluff"
 	MsgPlayerNotBluff = "msg_player_not_bluff"
 	MsgPlayerGotCards = "msg_player_got_cards"
@@ -28,16 +29,19 @@ const (
 )
 
 type UnoMsg struct {
-	ID      string       // send to that player
-	Message string       `json:"msg"`
-	MyCards []MyCard     `json:"myCards"`
-	Target  UnoMsgPlayer `json:"target"`
+	Ok      bool           `json:"ok"`
+	ID      string         // send to that player
+	Message string         `json:"msg"`
+	MyCards []MyCard       `json:"myCards"` // my cards
+	Players []UnoMsgPlayer `json:"players"`
+	Target  UnoMsgPlayer   `json:"target"` // target, player
+	Card    int            `json:"card"`   // related card
 
-	Name        string   `json:"name"`
-	Ok          bool     `json:"ok"`
-	Cards       []int    `json:"cards"`
-	ActiveCards []int    `json:"activeCards"`
-	Players     []string `json:"players"`
+	// Name        string   `json:"name"`
+	// Ok          bool     `json:"ok"`
+	// Cards       []int    `json:"cards"`
+	// ActiveCards []int    `json:"activeCards"`
+	// Players     []string `json:"players"`
 }
 
 type UnoMsgPlayer struct {
@@ -46,8 +50,8 @@ type UnoMsgPlayer struct {
 }
 
 type MyCard struct {
-	ID     int
-	Usable bool
+	ID     int  `json:"id"`
+	Usable bool `json:"usable"`
 }
 
 func (u *UnoMsg) To(id string) *UnoMsg {
@@ -63,7 +67,7 @@ func (u *UnoMsg) WithTarget(p *player) *UnoMsg {
 	return u
 }
 
-func (u *UnoMsg) WithCards(cards, activeCards []int) *UnoMsg {
+func (u *UnoMsg) SetCards(cards, activeCards []int) *UnoMsg {
 	mcs := []MyCard{}
 	for _, c := range cards {
 		mc := MyCard{
@@ -74,6 +78,24 @@ func (u *UnoMsg) WithCards(cards, activeCards []int) *UnoMsg {
 	}
 
 	u.MyCards = mcs
+	return u
+}
+
+func (u *UnoMsg) SetPlayers(players []*player) *UnoMsg {
+	pls := []UnoMsgPlayer{}
+	for _, p := range players {
+		pls = append(pls, UnoMsgPlayer{
+			Name: p.FullName(),
+			id:   p.ID,
+		})
+	}
+	u.Players = pls
+
+	return u
+}
+
+func (u *UnoMsg) WithCard(cardID int) *UnoMsg {
+	u.Card = cardID
 	return u
 }
 
