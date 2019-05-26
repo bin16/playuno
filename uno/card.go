@@ -113,11 +113,19 @@ func cardIsNumber(id int) bool {
 }
 
 func cardIsWildDrawFour(id int) bool {
-	if id == 54 { // its not needed
+	if id == IDCardWildAndDraw { // its not needed
 		return true
 	}
 
-	return id >= 65 && id <= 68
+	return id >= IDWildDrawFourRed && id <= IDWildDrawFourBlue
+}
+
+func cardIsWild(id int) bool {
+	if id == IDCardWild { // its not needed
+		return true
+	}
+
+	return id >= IDWildRed && id <= IDWildBlue
 }
 
 func cardIsSkip(id int) bool {

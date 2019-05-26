@@ -11,14 +11,10 @@ const (
 
 	// Todo: rewrite here
 	// GameStatusXXX for deck
-	GameStatusOpen   = 0
-	GameStatusGoing  = 1
-	GameStatusPaused = 2
-	GameStatusClosed = 3
-)
+	GameStatusOpen  = 0
+	GameStatusGoing = 1
 
-// Colors, Cards, IDs
-const (
+	// Colors, Cards, IDs
 	ColorRed     = 0
 	ColorYellow  = 1
 	ColorBlue    = 2
@@ -43,34 +39,42 @@ const (
 	WildDrawFour = 14
 
 	IDCardNone = 0
-
+	// One
+	IDCardRedNumOne    = 1
+	IDCardYellowNumOne = 1 + 13
+	IDCardGreenNumOne  = 1 + 13*2
+	IDCardBlueNumOne   = 1 + 13*3
+	// Skip
 	IDCardRedSkip    = 10
 	IDCardYellowSkip = 10 + 13
 	IDCardGreenSkip  = 10 + 13*2
 	IDCardBlueSkip   = 10 + 13*3
-
+	// Reverse
 	IDCardRedReverse    = 11
 	IDCardYellowReverse = 11 + 13
 	IDCardGreenReverse  = 11 + 13*2
 	IDCardBlueReverse   = 11 + 13*3
-
+	// DrawTwo
 	IDCardRedDrawTwo    = 12
 	IDCardYellowDrawTwo = 12 + 13
 	IDCardGreenDrawTwo  = 12 + 13*2
 	IDCardBlueDrawTwo   = 12 + 13*3
-
+	// Zero
 	IDCardRedNumZero    = 13
-	IDCardYellowNumZero = 13 + 10
+	IDCardYellowNumZero = 13 + 13
 	IDCardGreenNumZero  = 13 + 13*2
 	IDCardBlueNumZero   = 13 + 13*3
-
+	// Wild
 	IDCardWild        = 53
 	IDCardWildAndDraw = 54
-
+	// Draw
 	IDSpecialDraw = 60
-	/*
-		61-64, 65-68 is black
-	*/
+	// 61-64 is x-wild
+	IDWildRed    = 61
+	IDWildYellow = 62
+	IDWildGreen  = 63
+	IDWildBlue   = 64
+	// 65-68 is x-wildDrawFour
 	IDWildDrawFourRed    = 65
 	IDWildDrawFourYellow = 66
 	IDWildDrawFourGreen  = 67
@@ -94,20 +98,26 @@ func getAltColor(id int) int {
 
 func getColor(id int) int {
 	switch {
-	case id > 54:
+	case id >= IDSpecialDraw:
 		return ColorSpecial
-	case id > 42:
+	case id >= IDWildDrawFourRed:
+		return id - IDWildDrawFourRed
+	case id >= IDWildRed:
+		return id - IDWildRed
+	case id == IDCardWild:
 		return ColorBlack
-	case id > 39:
+	case id == IDCardWildAndDraw:
+		return ColorBlack
+	case id >= IDCardBlueNumOne:
 		return ColorBlue
-	case id > 26:
+	case id >= IDCardGreenNumOne:
 		return ColorGreen
-	case id > 13:
+	case id > IDCardYellowNumOne:
 		return ColorYellow
-	case id > 0:
+	case id > IDCardRedNumOne:
 		return ColorRed
 	default:
-		return 0
+		return ColorSpecial
 	}
 }
 

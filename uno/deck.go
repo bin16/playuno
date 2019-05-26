@@ -68,15 +68,16 @@ func (d *deck) MyCards(playerID string) []MyCard {
 	if p == nil {
 		return []MyCard{}
 	}
+
 	cards := p.Cards()
-	usableCards := d.Filter(playerID)
+	validCards := d.Filter(playerID)
 	myCards := []MyCard{}
 	for _, c := range cards {
 		mc := MyCard{
 			ID: c,
 		}
-		if isCardInList(c, usableCards) {
-			mc.Usable = true
+		if isCardInList(c, validCards) {
+			mc.IsValid = true
 		}
 		myCards = append(myCards, mc)
 	}
@@ -117,7 +118,7 @@ func (d *deck) Accept(playerID string, cardID int) (bool, []UnoMsg) {
 	}
 	p0 := d.PreviousPlayer() // p1 may challenge him
 	lastID := d.LastID()     // last card id in graveyard
-	if d.isUsable(cardID) {
+	if d.isValid(cardID) {
 		p1.RemoveCard(cardID)
 		d.graveyard = append(d.graveyard, cardID)
 		switch cardID {
@@ -257,20 +258,24 @@ func (d *deck) LastCard() Card {
 }
 
 // todo: fix
-func (d *deck) isUsable(cardID int) bool {
+func (d *deck) isValid(cardID int) bool {
 	lastCardID := d.LastID()
 	switch {
-	// draw two, draw two
-	// reverse and skip is like normal cards
-	case cardIsDrawTwo(lastCardID):
-		return cardIsDrawTwo(cardID)
-	case cardIsWildDrawFour(lastCardID):
-		return cardID == IDSpecialChallenge || cardID == IDSpecialDraw
+	case cardIsWildDrawFour(lastCardID): // ====> wildDrawFour vs challenge / draw four
+		return cardID == IDSpecialChallenge || cardID == IDSpeicalDrawFour
+	case cardIsDrawTwo(lastCardID): // =========> drawTwo vs drawTwo / draw
+		return cardIsDrawTwo(cardID) || cardID == IDSpecialDraw
+	case cardID == IDSpecialDraw: // ===========> drawTwo is always valid except after wildDrawFour
+		return true
+	case cardIsWildDrawFour(cardID):
+		return true
+	case cardIsWild(cardID):
+		return true
 	}
 
-	currentCard := Info(cardID)
-	lastCard := d.LastCard()
-	if currentCard.Name == lastCard.Name || currentCard.Color == lastCard.Color {
+	c1 := Info(cardID)
+	c0 := d.LastCard()
+	if c1.Name == c0.Name || c1.Color == c0.Color {
 		return true
 	}
 
@@ -278,27 +283,28 @@ func (d *deck) isUsable(cardID int) bool {
 }
 
 // Todo: rewrite!
-func (d *deck) pickActiveCards(ids []int) []int {
-	lastCard := d.LastCard()
-	nextColor := lastCard.NextColor()
-	filteredCards := []int{}
+func (d *deck) pickValidCards(ids []int) []int {
+	validCards := d.pickValidCommands()
 
-	// wild_draw_four
-	if nextColor == ColorBlack {
-		filteredCards = append(filteredCards, IDSpeicalDrawFour, IDSpecialChallenge)
-		return filteredCards
-	}
-
-	ulog("Last card", lastCard.String())
-	filteredCards = []int{IDSpecialDraw}
 	for _, i := range ids {
-		if d.isUsable(i) {
-			filteredCards = append(filteredCards, i)
+		if d.isValid(i) {
+			validCards = append(validCards, i)
 		}
 	}
-	ulog(">>>> FilteredCards", filteredCards)
 
-	return filteredCards
+	return validCards
+}
+
+func (d *deck) pickValidCommands() []int {
+	c0 := d.LastCard()
+	cards := []int{}
+	if cardIsWildDrawFour(c0.ID) {
+		cards = []int{IDSpeicalDrawFour, IDSpecialChallenge}
+	} else {
+		cards = []int{IDSpecialDraw}
+	}
+
+	return cards
 }
 
 // Filter returns valid cards can be post
@@ -308,7 +314,7 @@ func (d *deck) Filter(playerID string) []int {
 		return []int{}
 	}
 
-	return d.pickActiveCards(p.Cards())
+	return d.pickValidCards(p.Cards())
 }
 
 // findRelatedCards return related cards ...

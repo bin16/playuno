@@ -40,7 +40,7 @@ type UnoMsg struct {
 	// Name        string   `json:"name"`
 	// Ok          bool     `json:"ok"`
 	// Cards       []int    `json:"cards"`
-	// ActiveCards []int    `json:"activeCards"`
+	// validCards  []int    `json:"validCards"`
 	// Players     []string `json:"players"`
 }
 
@@ -50,8 +50,8 @@ type UnoMsgPlayer struct {
 }
 
 type MyCard struct {
-	ID     int  `json:"id"`
-	Usable bool `json:"usable"`
+	ID      int  `json:"id"`
+	IsValid bool `json:"isValid"`
 }
 
 func (u *UnoMsg) To(id string) *UnoMsg {
@@ -67,12 +67,12 @@ func (u *UnoMsg) WithTarget(p *player) *UnoMsg {
 	return u
 }
 
-func (u *UnoMsg) SetCards(cards, activeCards []int) *UnoMsg {
+func (u *UnoMsg) SetCards(cards, validCards []int) *UnoMsg {
 	mcs := []MyCard{}
 	for _, c := range cards {
 		mc := MyCard{
-			ID:     c,
-			Usable: isCardInList(c, activeCards),
+			ID:      c,
+			IsValid: isCardInList(c, validCards),
 		}
 		mcs = append(mcs, mc)
 	}
