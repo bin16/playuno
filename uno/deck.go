@@ -7,49 +7,14 @@ import (
 	"time"
 )
 
-type UnoMsg struct {
-	ID          string   // send to that player
-	Name        string   `json:"name"`
-	Ok          bool     `json:"ok"`
-	Cards       []int    `json:"cards"`
-	ActiveCards []int    `json:"activeCards"`
-	Players     []string `json:"players"`
-	Message     string   `json:"msg"`
-}
-
-// Messages
-const (
-	MsgPlayerNotBluff = "playerNotBluff"
-	MsgPlayerBluff    = "playerBluff"
-	MsgPlayerCheating = "playerCheating"
-	MsgOk             = "ok"
-	MsgPlayerToGame   = "playerToGame"
-	MsgPlayerMessage  = "playerMessage"
-	MsgGamePlayerJoin = "gamePlayerJoin"
-	MsgGameStart      = "gameStart"
-	MsgGameDrawCards  = "gameDrawCards"
-	MsgGameFirstCard  = "gameFirstCard"
-	MsgGameCard       = "gameCard"
-	MsgOneToGame      = "oneToGame"
-	MsgSystemMessage  = "systemMessage"
-	MsgWarning        = "warning"
-)
-
-// TurnResult detail of result when user post a new card
-// but, not in use
-type TurnResult struct {
-	Valid    bool
-	Message  string
-	Cards    []int
-	AltCards []int
-}
-
 type player struct {
 	_ID   int    // 1,2,3...
-	ID    string `json:"id"` // like password
-	Name  string `json:"name"`
-	Key   string `json:"key"`
+	ID    string `json:"id"`   // uuid, like password
+	Name  string `json:"name"` // display name/nickname
 	cards []int
+
+	// deprecated
+	Key string `json:"key"`
 }
 
 func (p *player) Cards() []int {
@@ -88,10 +53,10 @@ type deck struct {
 // with attributes like
 // color, image url, available...
 // it would be helpful for client
-func (d *deck) MyCards(id int) []Card {
-	cards := []Card{}
-	return cards
-}
+// func (d *deck) MyCards(id int) []Card {
+// 	cards := []Card{}
+// 	return cards
+// }
 
 // Players return all player in game
 // same as d.players
@@ -102,7 +67,7 @@ func (d *deck) Players() []*player {
 func (d *deck) PlayerNames() []string {
 	names := []string{}
 	for _, p := range d.players {
-		names = append(names, p.Name+"("+strconv.Itoa(p._ID)+")")
+		names = append(names, p.Name+" ("+strconv.Itoa(p._ID)+")")
 	}
 
 	return names
@@ -117,114 +82,60 @@ func (d *deck) PreviousPlayer() *player {
 }
 
 // Accept get card ID
-func (d *deck) Accept(playerID string, cardID int) []UnoMsg {
+func (d *deck) Accept(playerID string, cardID int) (bool, []UnoMsg) {
 	p1 := d.CurrentPlayer()
 	if p1.ID != playerID {
-		return []UnoMsg{
-			UnoMsg{
-				Ok:      false,
-				Message: MsgPlayerCheating,
-			},
+		return false, []UnoMsg{
+			*unoMsgMaker(false, MsgWarning).To(playerID),
 		}
 	}
 	p0 := d.PreviousPlayer() // p1 may challenge him
 	lastID := d.LastID()     // last card id in graveyard
 	if d.isUsable(cardID) {
-		d.graveyard = append(d.graveyard, cardID)
 		p1.RemoveCard(cardID)
+		d.graveyard = append(d.graveyard, cardID)
 		switch cardID {
 		case IDSpecialDraw:
-			p1.cards = append(p1.cards, d.Draw(2)...)
-			return []UnoMsg{
-				UnoMsg{
-					Ok:      true,
-					Cards:   []int{cardID},
-					Message: MsgGameCard,
-				},
-				UnoMsg{
-					ID:      p1.ID,
-					Ok:      true,
-					Cards:   p1.cards,
-					Message: MsgOk,
-				},
+			p1.AddCards(d.Draw(2))
+			return OK, []UnoMsg{
+				*unoMsgMaker(true, MsgCardAccept),
+				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 			}
 		case IDSpeicalDrawFour:
-			p1.cards = append(p1.cards, d.Draw(4)...)
-			return []UnoMsg{
-				UnoMsg{
-					Ok:      true,
-					Cards:   []int{cardID},
-					Message: MsgGameCard,
-				},
-				UnoMsg{
-					ID:      p1.ID,
-					Ok:      true,
-					Cards:   p1.cards,
-					Message: MsgOk,
-				},
+			p1.AddCards(d.Draw(4))
+			return OK, []UnoMsg{
+				*unoMsgMaker(true, MsgCardAccept),
+				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 			}
 		case IDSpecialChallenge:
 			if isNotBluff(lastID, p0.cards) {
-				p1.cards = append(p1.cards, d.Draw(6)...)
-				return []UnoMsg{
-					UnoMsg{
-						Ok:      true,
-						Cards:   []int{cardID},
-						Message: MsgGameCard,
-					},
-					UnoMsg{
-						ID:      p0.ID,
-						Ok:      true,
-						Cards:   p1.cards,
-						Message: MsgPlayerNotBluff,
-					},
-					UnoMsg{
-						ID:      p1.ID,
-						Ok:      true,
-						Cards:   p0.cards,
-						Message: MsgPlayerNotBluff,
-					},
+				p1.AddCards(d.Draw(6))
+				return OK, []UnoMsg{
+					*unoMsgMaker(true, MsgCardAccept),
+					*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+					*unoMsgMaker(true, MsgPlayerNotBluff).WithTarget(p0),
+					*unoMsgMaker(true, MsgPlayerGotCards).WithTarget(p1),
 				}
 			}
-
-			p0.cards = append(p0.cards, d.Draw(6)...)
-			return []UnoMsg{
-				UnoMsg{
-					Ok:      true,
-					Cards:   []int{cardID},
-					Message: MsgGameCard,
-				},
-				UnoMsg{
-					ID:      p1.ID,
-					Ok:      true,
-					Cards:   p1.cards,
-					Message: MsgPlayerBluff,
-				},
+			// else
+			p0.AddCards(d.Draw(6))
+			return OK, []UnoMsg{
+				*unoMsgMaker(true, MsgCardAccept),
+				*unoMsgMaker(true, CmdSetCards).WithCards(p0.Cards(), NoCards).To(p0.ID), // Update p0's cards
+				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
+				*unoMsgMaker(true, MsgPlayerBluff).WithTarget(p0),
+				*unoMsgMaker(true, MsgPlayerGotCards).WithTarget(p0),
 			}
 		default:
-			return []UnoMsg{
-				UnoMsg{
-					Ok:      true,
-					Cards:   []int{cardID},
-					Message: MsgGameCard,
-				},
-				UnoMsg{
-					ID:      p1.ID,
-					Ok:      true,
-					Cards:   p1.cards,
-					Message: MsgOk,
-				},
+			return OK, []UnoMsg{
+				*unoMsgMaker(true, MsgCardAccept),
+				*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
 			}
 		}
 	}
 
-	return []UnoMsg{
-		UnoMsg{
-			ID:      p1.ID,
-			Ok:      false,
-			Cards:   p1.cards,
-			Message: MsgPlayerCheating,
-		},
+	return false, []UnoMsg{
+		*unoMsgMaker(false, MsgWarning).To(playerID),
 	}
 }
 
@@ -233,21 +144,10 @@ func (d *deck) NextTurn() []UnoMsg {
 	d.previousIndex = d.currentIndex
 	d.currentIndex = d.IndexNextPlayer()
 	p1 := d.CurrentPlayer()
-	cards := p1.cards
 
 	return []UnoMsg{
-		UnoMsg{
-			ID:          p1.ID,
-			Ok:          true,
-			Message:     MsgOneToGame,
-			Cards:       cards,
-			ActiveCards: d.Filter(p1.ID),
-		},
-		UnoMsg{
-			Ok:      true,
-			Name:    p1.Name,
-			Message: MsgPlayerToGame,
-		},
+		*unoMsgMaker(true, MsgPlayerToGame).WithTarget(p1),
+		*unoMsgMaker(true, CmdSetCards).WithCards(p1.Cards(), d.Filter(p1.ID)).To(p1.ID),
 	}
 }
 
@@ -283,7 +183,19 @@ func (d *deck) Draw(num int) []int {
 	return ids
 }
 
-func (d *deck) Start() []UnoMsg {
+func (d *deck) StartBy(playerID string) (bool, []UnoMsg) {
+	if d.Gaming() {
+		return false, []UnoMsg{*unoMsgMaker(false, MsgWarning).To(playerID)}
+	}
+
+	if d.Player(playerID) == nil {
+		return false, []UnoMsg{*unoMsgMaker(false, MsgWarning).To(playerID)}
+	}
+
+	return OK, d.start()
+}
+
+func (d *deck) start() []UnoMsg {
 	d.ShuffleN(100)
 	c := d.cards[0]
 	d.cards = d.cards[1:]
@@ -296,19 +208,14 @@ func (d *deck) Start() []UnoMsg {
 
 	msgList := []UnoMsg{}
 	for _, p := range d.players {
-		p.cards = d.Draw(7)
-		msgList = append(msgList, UnoMsg{
-			ID:      p.ID,
-			Ok:      true,
-			Cards:   p.Cards(),
-			Message: MsgGameDrawCards,
-		})
+		p.AddCards(d.Draw(7))
+		msgList = append(msgList,
+			*unoMsgMaker(true, CmdSetCards).WithCards(p.Cards(), NoCards).To(p.ID),
+		)
 	}
-	msgList = append(msgList, UnoMsg{
-		Ok:      true,
-		Message: MsgGameFirstCard,
-		Cards:   []int{c},
-	})
+	msgList = append(msgList,
+		*unoMsgMaker(true, MsgCardAccept),
+	)
 
 	return msgList
 }
@@ -596,4 +503,14 @@ type deckInfo struct {
 
 	Players []*player `json:"players"`
 	MyCards []int     `json:"myCards"`
+}
+
+func isCardInList(card int, cards []int) bool {
+	for _, c := range cards {
+		if c == card {
+			return true
+		}
+	}
+
+	return false
 }
