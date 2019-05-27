@@ -120,10 +120,18 @@ func (d *deck) Accept(playerID string, cardID int) (bool, []UnoMsg) {
 	lastID := d.LastID()     // last card id in graveyard
 	if d.isValid(cardID) {
 		p1.RemoveCard(cardID)
-		d.graveyard = append(d.graveyard, cardID)
+		// ignore special cards
+		// todo: use color to do this
+		if cardID != IDSpecialDraw && cardID != IDSpecialChallenge && cardID != IDSpeicalDrawFour {
+			d.graveyard = append(d.graveyard, cardID)
+		}
 		switch cardID {
 		case IDSpecialDraw:
 			p1.AddCards(d.Draw(2))
+			if cardIsDrawTwo(lastID) {
+				c0 := Info(lastID)
+				d.graveyard = append(d.graveyard, IDFakeCardRed+c0.Color)
+			}
 			return OK, []UnoMsg{
 				*unoMsgMaker(true, MsgCardAccept).WithCard(cardID).WithTarget(p1),
 				*unoMsgMaker(true, CmdSetCards).SetCards(p1.Cards(), NoCards).To(p1.ID), // Update p1's cards
@@ -160,6 +168,12 @@ func (d *deck) Accept(playerID string, cardID int) (bool, []UnoMsg) {
 			}
 		}
 	}
+	c0 := Info(lastID)
+	c1 := Info(cardID)
+	ulog("-------------- deck.Accept() ---------------")
+	ulog("last card is: ", c0.String())
+	ulog(cardID, "is not valid. -", c1.String())
+	ulog("============================================")
 
 	return false, []UnoMsg{
 		*unoMsgMaker(false, MsgWarning).To(playerID),
@@ -260,24 +274,33 @@ func (d *deck) LastCard() Card {
 // todo: fix
 func (d *deck) isValid(cardID int) bool {
 	lastCardID := d.LastID()
+
+	c1 := Info(cardID)
+	c0 := d.LastCard()
+	ulog("----------------- isValid ----------------")
+	ulog(c0.String(), ">>>", c1.String())
+
 	switch {
-	case cardIsWildDrawFour(lastCardID): // ====> wildDrawFour vs challenge / draw four
+	case cardIsFake(lastCardID): // ============> [drawTwo->fake] vs [any colors, wild, wildDrawFour]
+		return c0.Color == c1.Color || cardIsWild(cardID) || cardIsWildDrawFour(cardID)
+	case cardIsWildDrawFour(lastCardID): // ====> [wildDrawFour] vs [challenge] / [drawFour]
 		return cardID == IDSpecialChallenge || cardID == IDSpeicalDrawFour
-	case cardIsDrawTwo(lastCardID): // =========> drawTwo vs drawTwo / draw
+	case cardIsDrawTwo(lastCardID): // =========> [drawTwo] vs [drawTwo] / [draw]
 		return cardIsDrawTwo(cardID) || cardID == IDSpecialDraw
+	case cardIsWild(cardID): // ================> any(not [wildDrawFour] or [drawTwo]) vs [wild]
+		return true
 	case cardID == IDSpecialDraw: // ===========> drawTwo is always valid except after wildDrawFour
 		return true
 	case cardIsWildDrawFour(cardID):
 		return true
-	case cardIsWild(cardID):
-		return true
 	}
 
-	c1 := Info(cardID)
-	c0 := d.LastCard()
 	if c1.Name == c0.Name || c1.Color == c0.Color {
 		return true
 	}
+
+	ulog("If you see this, it's not valid.")
+	ulog("==========================================")
 
 	return false
 }

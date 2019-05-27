@@ -173,6 +173,10 @@ func cardIsDrawTwo(id int) bool {
 	}
 }
 
+func cardIsFake(id int) bool {
+	return id >= IDFakeCardRed && id <= IDFakeCardBlue
+}
+
 // not in use
 func pickCardFromList(id int, list []int) (bool, []int) {
 	for ix, _id := range list {
@@ -193,4 +197,9 @@ func isNotBluff(cardID int, relatedCards []int) bool {
 		}
 	}
 	return false
+}
+
+func getFakeCard(cardID int) int {
+	c := getColor(cardID)
+	return IDFakeCardRed + c
 }

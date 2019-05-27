@@ -40,30 +40,30 @@ const (
 
 	IDCardNone = 0
 	// One
-	IDCardRedNumOne    = 1
-	IDCardYellowNumOne = 1 + 13
-	IDCardGreenNumOne  = 1 + 13*2
-	IDCardBlueNumOne   = 1 + 13*3
+	IDCardRedNumOne    = 1        // 1
+	IDCardYellowNumOne = 1 + 13   // 14
+	IDCardGreenNumOne  = 1 + 13*2 // 26
+	IDCardBlueNumOne   = 1 + 13*3 // 40
 	// Skip
-	IDCardRedSkip    = 10
-	IDCardYellowSkip = 10 + 13
-	IDCardGreenSkip  = 10 + 13*2
-	IDCardBlueSkip   = 10 + 13*3
+	IDCardRedSkip    = 10        // 10
+	IDCardYellowSkip = 10 + 13   // 23
+	IDCardGreenSkip  = 10 + 13*2 // 36
+	IDCardBlueSkip   = 10 + 13*3 // 49
 	// Reverse
-	IDCardRedReverse    = 11
-	IDCardYellowReverse = 11 + 13
-	IDCardGreenReverse  = 11 + 13*2
-	IDCardBlueReverse   = 11 + 13*3
+	IDCardRedReverse    = 11        // 11
+	IDCardYellowReverse = 11 + 13   // 24
+	IDCardGreenReverse  = 11 + 13*2 // 37
+	IDCardBlueReverse   = 11 + 13*3 // 50
 	// DrawTwo
-	IDCardRedDrawTwo    = 12
-	IDCardYellowDrawTwo = 12 + 13
-	IDCardGreenDrawTwo  = 12 + 13*2
-	IDCardBlueDrawTwo   = 12 + 13*3
+	IDCardRedDrawTwo    = 12        // 12
+	IDCardYellowDrawTwo = 12 + 13   // 25
+	IDCardGreenDrawTwo  = 12 + 13*2 // 38
+	IDCardBlueDrawTwo   = 12 + 13*3 // 51
 	// Zero
-	IDCardRedNumZero    = 13
-	IDCardYellowNumZero = 13 + 13
-	IDCardGreenNumZero  = 13 + 13*2
-	IDCardBlueNumZero   = 13 + 13*3
+	IDCardRedNumZero    = 13        // 13
+	IDCardYellowNumZero = 13 + 13   // 26
+	IDCardGreenNumZero  = 13 + 13*2 // 39
+	IDCardBlueNumZero   = 13 + 13*3 // 52
 	// Wild
 	IDCardWild        = 53
 	IDCardWildAndDraw = 54
@@ -81,6 +81,11 @@ const (
 	IDWildDrawFourBlue   = 68
 	IDSpecialChallenge   = 69
 	IDSpeicalDrawFour    = 70
+
+	IDFakeCardRed    = 71 // it's used cards for drawTwo
+	IDFakeCardYellow = 72
+	IDFakeCardGreen  = 73
+	IDFakeCardBlue   = 74
 )
 
 var colorMap = map[int]string{
@@ -116,6 +121,8 @@ func getColor(id int) int {
 		return ColorYellow
 	case id > IDCardRedNumOne:
 		return ColorRed
+	case cardIsFake(id):
+		return id - IDFakeCardRed
 	default:
 		return ColorSpecial
 	}
@@ -135,6 +142,9 @@ func getName(id int) int {
 		return IDSpeicalDrawFour
 	case id == IDSpecialChallenge:
 		return IDSpecialChallenge
+	case cardIsFake(id):
+		// todo: check it
+		return getColor(id)*13 + IDCardRedDrawTwo // fake drawTwo
 	default:
 		return id % 13
 	}
