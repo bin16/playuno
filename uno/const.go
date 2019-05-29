@@ -103,6 +103,8 @@ func getAltColor(id int) int {
 
 func getColor(id int) int {
 	switch {
+	case cardIsFake(id):
+		return id - IDFakeCardRed
 	case id >= IDSpecialDraw:
 		return ColorSpecial
 	case id >= IDWildDrawFourRed:
@@ -121,8 +123,6 @@ func getColor(id int) int {
 		return ColorYellow
 	case id > IDCardRedNumOne:
 		return ColorRed
-	case cardIsFake(id):
-		return id - IDFakeCardRed
 	default:
 		return ColorSpecial
 	}
